@@ -3,16 +3,42 @@ use std::io::Write; // For utilizing io::stdout().flush()
 use std::{cmp::Ordering, io};
 
 fn main() {
-    choose_fn();
-    cmp_num(true);
-    const_mut_shadowing();
-}
-
-fn choose_fn() {
     // mut means mutable. If not specified, the variable is immutable. But mut is something different from const, which would be elaborated later
     let mut option = String::new();
+    cli_out_options();
 
-    print!("Enter option: ");
+    io::stdin()
+        .read_line(&mut option)
+        .expect("Failed to read line");
+
+    // str.trim() would remove leading and trailing whitespace
+    match option.trim() {
+        "1" => cmp_num(true),
+        "2" => const_mut_shadowing(),
+        "3" => control_flow(),
+        "4" => enum_struct(),
+        _ => {
+            // default
+            let mut rng = rand::rng();
+            let secret_number = rng.random_range(1..101);
+            println!(
+                "Undefined but show a random number for you: {}",
+                secret_number
+            );
+        }
+    }
+}
+
+fn cli_out_options() {
+    println!(
+        "Welcome to Rust playground. Author: Tyler\n========================================="
+    );
+    println!("1. Compare number");
+    println!("2. Const, Mut and Shadowing");
+    println!("3. Control Flow");
+    println!("4. Enum and Struct");
+
+    print!("=========================================\nEnter option: ");
 
     /*
      * Rust automatically flushes the output buffer when a newline is printed, so println!() outputs immediately.
@@ -21,19 +47,6 @@ fn choose_fn() {
      * Call io::stdout().flush() after print!() to force immediate output.
      */
     io::stdout().flush().expect("Failed to flush stdout"); // 強制立即輸出緩衝區
-
-    io::stdin()
-        .read_line(&mut option)
-        .expect("Failed to read line");
-
-    let mut rng = rand::rng();
-    let secret_number = rng.random_range(1..101);
-
-    match option.trim() {
-        // str.trim() would remove leading and trailing whitespace
-        "1" => println!("Run first function to get random number: {}", secret_number),
-        _ => println!("Undefined"),
-    }
 }
 
 fn cmp_num(looping: bool) {
@@ -81,20 +94,20 @@ fn const_mut_shadowing() {
      * const variables cannot be changed forever, while mutable variables can be changed by mut
      * const variables cannot be shadowed
      */
-    const THREE_HOURS_IN_SECONDS: u32 = 60 * 60 * 3;
+    const _THREE_HOURS_IN_SECONDS: u32 = 60 * 60 * 3; // underscore means ignore declaration but not use
 
     /*
      * Shared Reference is allowed to read data but not modify it.
      * Since it can be only read, there can exist multiple shared references and it is safe to pass between threads.
      *
      * Unique Reference is allowed to read and modify data.
-     * Since it can be only read and modify, there can exist only one unique reference.
+     * Since it can be both read and modify, there can exist only one unique reference.
      * This exclusivity prevents data races and ensures that when you’re modifying data.
      */
 
     let mut x = 42;
 
-    let _shared_ref = &x; // underscore means ignore declaration but not use
+    let _shared_ref = &x;
 
     let unique_ref = &mut x;
     *unique_ref += 1; // modify directly
@@ -118,3 +131,114 @@ fn const_mut_shadowing() {
     let spaces = spaces.len();
     println!("The value of spaces is: {spaces}");
 }
+
+fn control_flow() {
+    // if in let
+    let condition = true;
+    let number = if condition { 5 } else { 6 };
+    println!("The value of number is: {number}");
+
+    // Returning values from loops
+    let mut counter = 0;
+    let result = loop {
+        counter += 1;
+        if counter == 10 {
+            break counter * 2;
+        }
+    };
+    println!("The value of result is: {result}");
+
+    // Loop labels in nested loops with prefix '
+    let mut count = 0;
+    'counting_up: loop {
+        println!("count = {count}");
+        let mut remaining = 10;
+        loop {
+            println!("remaining = {remaining}");
+            if remaining == 9 {
+                break;
+            }
+            if count == 2 {
+                break 'counting_up;
+            }
+            remaining -= 1;
+        }
+        count += 1;
+    }
+    println!("End count = {count}");
+
+    // for-loop range
+    for x in 0..3 {
+        // The ".." generates numbers from a start number up to but not including an end number.
+        // loop through [0, 3)
+        print!("{x} ");
+    }
+    println!();
+
+    for x in 0..=3 {
+        // The "=.." generates numbers from a start number up to and including an end number.
+        // loop through [0, 3]
+        print!("{x} ");
+    }
+    println!();
+}
+
+fn enum_struct() {
+    // Define an enum for V6 format with two variants.
+    enum V6Format {
+        Bin,
+        Hex,
+    }
+
+    // Define an enum for IP address kind that uses V6Format.
+    enum IpAddrKind {
+        V4,
+        V6(V6Format),
+        None,
+    }
+
+    // Define a struct that holds various data, including an IpAddrKind.
+    struct Ap {
+        id: i32,
+        name: String,
+        kind: IpAddrKind,
+        address: String,
+    }
+
+    let aps = vec![
+        Ap {
+            id: 1,
+            name: String::from("AC-01"),
+            kind: IpAddrKind::V4,
+            address: "127.0.0.1".to_string(),
+        },
+        Ap {
+            id: 2,
+            name: String::from("ACX-01"),
+            kind: IpAddrKind::V6(V6Format::Hex),
+            address: "::1".to_string(),
+        },
+    ];
+
+    for ap in aps {
+        match ap.kind {
+            IpAddrKind::V4 => println!(
+                "id: {}, name: {}, kind: IPv4, address: {}",
+                ap.id, ap.name, ap.address
+            ),
+            IpAddrKind::V6(V6Format::Hex) => println!(
+                "id: {}, name: {}, kind: IPv6 (Hex), address: {}",
+                ap.id, ap.name, ap.address
+            ),
+            IpAddrKind::V6(V6Format::Bin) => println!(
+                "id: {}, name: {}, kind: IPv6 (Bin), address: {}",
+                ap.id, ap.name, ap.address
+            ),
+            IpAddrKind::None => println!(
+                "id: {}, name: {}, kind: None, address: {}",
+                ap.id, ap.name, ap.address
+            ),
+        }
+    }
+}
+
