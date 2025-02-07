@@ -17,6 +17,7 @@ fn main() {
         "2" => const_mut_shadowing(),
         "3" => control_flow(),
         "4" => enum_struct(),
+        "5" => generic_type(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -37,6 +38,7 @@ fn cli_out_options() {
     println!("2. Const, Mut and Shadowing");
     println!("3. Control Flow");
     println!("4. Enum and Struct");
+    println!("5. Generic Type");
 
     print!("=========================================\nEnter option: ");
 
@@ -184,17 +186,16 @@ fn control_flow() {
 }
 
 fn enum_struct() {
-    // Define an enum for V6 format with two variants.
+    // Enumerations allow you to create a new type that can have a value of several tagged elements
     enum V6Format {
         Bin,
         Hex,
     }
 
-    // Define an enum for IP address kind that uses V6Format.
     enum IpAddrKind {
         V4,
         V6(V6Format),
-        None,
+        None, // None represents the absensce of a kind
     }
 
     // Define a struct that holds various data, including an IpAddrKind.
@@ -216,7 +217,19 @@ fn enum_struct() {
             id: 2,
             name: String::from("ACX-01"),
             kind: IpAddrKind::V6(V6Format::Hex),
-            address: "::1".to_string(),
+            address: "2377:3b49:3ef1:63ab:b003:8a2e:5b4c:3d02".to_string(),
+        },
+        Ap {
+            id: 3,
+            name: String::from("ACX-01"),
+            kind: IpAddrKind::V6(V6Format::Bin),
+            address: "2377:3b49:3ef1:63ab:b003:8a2e:5b4c:3d02".to_string(),
+        },
+        Ap {
+            id: 4,
+            name: String::from("AC-02 --beta"),
+            kind: IpAddrKind::None,
+            address: "0.0.0.0".to_string(),
         },
     ];
 
@@ -232,13 +245,147 @@ fn enum_struct() {
             ),
             IpAddrKind::V6(V6Format::Bin) => println!(
                 "id: {}, name: {}, kind: IPv6 (Bin), address: {}",
-                ap.id, ap.name, ap.address
+                ap.id,
+                ap.name,
+                hex_to_bin(&ap.address)
             ),
-            IpAddrKind::None => println!(
-                "id: {}, name: {}, kind: None, address: {}",
-                ap.id, ap.name, ap.address
-            ),
+            IpAddrKind::None => println!("error fetch IP address kind"),
         }
+    }
+
+    fn hex_to_bin(hex: &String) -> String {
+        let mut bin = String::new();
+        for c in hex.chars() {
+            if c == ':' {
+                bin.push_str(":");
+                continue;
+            }
+            bin.push_str(&format!("{:04b}", c.to_digit(16).unwrap()));
+        }
+        bin
     }
 }
 
+fn generic_type() {
+    /*
+     * Generic types allow us to partially define a struct or enum,
+     * enabling a compiler to create a fully defined version at compile-time based off our code usage.
+     * Rust generally can infer the final type by looking at our instantiation,
+     * but if it needs help you can always be explicit using the ::<T> operator, also known by the name turbofish.
+     */
+
+    struct ReqData<T> {
+        data: T,
+    }
+
+    let number_data = ReqData { data: 42 };
+    let string_data = ReqData {
+        data: "42".to_string(),
+    };
+
+    println!("{}, {}", number_data.data, string_data.data);
+
+    /*
+     * Unlike many languages that use null or nil to represent the absence of a value—often leading to runtime errors if mishandled—Rust uses the Option<T> enum.
+     * This enum has two variants: Some(T) for a present value and None for the absence of a value.
+     * The compiler forces you to explicitly handle both cases, reducing the risk of runtime errors associated with null references."
+     *
+     * Below shows some common real-world examples of using Option<T> in Rust:
+     */
+
+    // --- Searching in a Collection ---
+    let numbers = vec![1, 2, 3, 4, 5];
+    let result = numbers.iter().find(|&&x| x > 3);
+
+    match result {
+        Some(&value) => println!("Found a number greater than 3: {}", value),
+        None => println!("No number greater than 3 found."),
+    }
+    // === End of searching in a Collection ===
+
+    // --- Parsing a String ---
+    let number_str = "42";
+    let number: Option<i32> = number_str.parse::<i32>().ok();
+
+    match number {
+        Some(n) => println!("Parsed number: {}", n),
+        None => println!("Failed to parse the number."),
+    }
+    // === End of parsing a String ===
+
+    // --- Optional Configuration or Parameters ---
+    struct Config {
+        port: Option<u16>, // Some API fields may be optional
+        host: String,
+    }
+
+    let config = Config {
+        port: Some(8080),
+        host: String::from("localhost"),
+    };
+
+    if let Some(port) = config.port {
+        println!("Server will run on {}:{}", config.host, port);
+    } else {
+        println!("Using default port.");
+    }
+    // === End of Optional Configuration or Parameters ===
+
+    // -- Returning Early from a Function
+    fn find_user_by_id(id: i32) -> Option<String> {
+        if id == 1 {
+            return Some("Alice".to_string());
+        }
+
+        None
+    }
+
+    println!("{:?}", find_user_by_id(2)); // :? is debug format specifier and Option<T> implement std::fmt::Debug
+
+    // Use match statement to handle Some and None cases separately
+    match find_user_by_id(2) {
+        Some(user) => println!("{user}"),
+        None => println!("No user found"),
+    }
+    // === End of Returning Early from a Function ===
+
+    /*
+     * Rust has another useful generic enum called Result<T, E> that is often used for error handling.
+     * This enum is so common, instances of the enum can be created anywhere with the enum variants Ok and Err.
+     */
+
+    pub fn max_profit(prices: Vec<i32>) -> Result<i32, String> {
+        if prices.len() < 2 {
+            return Err(String::from("Not enough data to calculate profit"))
+        }
+
+        let mut left = 0;
+        let mut profit = 0;
+
+        for right in 1..prices.len()-1 {
+            let temp = prices[right] - prices[left];
+            if temp > 0 {
+                // profit = cmp::max(profit, temp);
+                profit = profit.max(temp) // Rust’s inherent methods.
+            } else {
+                left = right
+            }
+        }
+
+        Ok(profit)
+    }
+
+    let nv_stock = vec![123, 114, 118, 116, 143, 128];
+    match max_profit(nv_stock) {
+        Ok(v) => println!("Max Profit: {}", v),
+        Err(e) => println!("err: {}", e),
+    }
+
+    // Result is so common that Rust has a powerful operator ? for working with them. The following statement is equivalent to above:
+    // But it only works in functions that return a type like Result, Option, or any other type that implements.
+    // let result = max_profit(nv_stock)?;
+    // println!("Max Profit by ? operator: {}", result);
+
+
+    
+}
