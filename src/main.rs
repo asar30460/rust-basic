@@ -1,5 +1,7 @@
 use rand::Rng;
-use std::io::Write; // For utilizing io::stdout().flush()
+use std::io::Write;
+use std::vec;
+// For utilizing io::stdout().flush()
 use std::{cmp::Ordering, io};
 
 fn main() {
@@ -18,6 +20,7 @@ fn main() {
         "3" => control_flow(),
         "4" => enum_struct(),
         "5" => generic_type(),
+        "6" => ownership_and_borrowing(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -39,6 +42,7 @@ fn cli_out_options() {
     println!("3. Control Flow");
     println!("4. Enum and Struct");
     println!("5. Generic Type");
+    println!("6. Ownership and Borrowing");
 
     print!("=========================================\nEnter option: ");
 
@@ -356,13 +360,13 @@ fn generic_type() {
 
     pub fn max_profit(prices: Vec<i32>) -> Result<i32, String> {
         if prices.len() < 2 {
-            return Err(String::from("Not enough data to calculate profit"))
+            return Err(String::from("Not enough data to calculate profit"));
         }
 
         let mut left = 0;
         let mut profit = 0;
 
-        for right in 1..prices.len()-1 {
+        for right in 1..prices.len() - 1 {
             let temp = prices[right] - prices[left];
             if temp > 0 {
                 // profit = cmp::max(profit, temp);
@@ -383,9 +387,110 @@ fn generic_type() {
 
     // Result is so common that Rust has a powerful operator ? for working with them. The following statement is equivalent to above:
     // But it only works in functions that return a type like Result, Option, or any other type that implements.
+    //
     // let result = max_profit(nv_stock)?;
     // println!("Max Profit by ? operator: {}", result);
 
+    /*
+     * Vec is a collection type which is a variably sized list of items.
+     * The macro vec! lets us easily create a vector rather than manually constructing one.
+     * Vec has the method iter() which creates an iterator from a vector.
+     */
 
-    
+    // Rust infers type automatically
+    let mut v = Vec::new();
+    v.push(1);
+    v.push(2);
+    v.push(3);
+
+    // Explicit type with turbofish
+    let mut v2 = Vec::<f32>::new();
+    v2.push(4.1);
+    v2.push(4.2);
+    v2.push(4.3);
+
+    // Concatenate vectors
+    let v3 = vec![String::from("a"), "b".to_string()];
+    for (idx, val) in v3.iter().enumerate() {
+        println!("The {idx}th element in vector is: {val}");
+    }
+}
+
+fn ownership_and_borrowing() {
+    #[derive(Copy, Clone)] // Make struct Foo implement copy trait for later demo of deference
+    struct Foo {
+        x: i32,
+    }
+
+    {
+        // Instantiating a type and binding it to a variable name creates a memory resource that the Rust compiler will validate through its whole lifetime.
+        // The bound variable is called the resource's owner.
+        let _foo = Foo { x: 42 }; // Creating memory resource and foo is the owner
+
+        // Rust uses the end of scope as the place to deconstruct and deallocate a resource.
+        // The term for this deconstruction and deallocation is called a drop.
+        // Memory detail: Rust does have GC, It instead using paradigm Resource Acquisition Is Initialization ( RAII ) in C++.
+
+        // *** _foo is dropped here ***
+    }
+
+    {
+        // When an owner is passed as an argument to a function, ownership is moved to the function parameter.
+        // After a move the variable in the original function can no longer be used.
+
+        fn do_something(f: Foo) {
+            println!("{}", f.x);
+            // f is dropped here
+        }
+
+        let foo = Foo { x: 42 };
+        // foo is moved to do_something
+        do_something(foo);
+        // foo can no longer be used
+    }
+
+    {
+        // Returning Ownership
+
+        fn do_something() -> Foo {
+            Foo { x: 42 } // ownership is moved out
+        }
+
+        let _foo = do_something(); // _foo becomes the owner
+    }
+
+    {
+        // References allow us borrow access to a resource with the & operator.
+        let foo = Foo { x: 42 };
+        let bar = &foo;
+
+        println!("Get foo after being borrowed: {}", foo.x);
+        println!("The var who borrowed from foo: {}", bar.x);
+    }
+
+    {
+        // Borrowing Mutable Ownership with References
+        // Rust prevents having two ways to mutate an owned value because it introduces the possibility of a data race.
+
+        let mut foo = Foo { x: 42 };
+        let bar = &mut foo;
+
+        // foo.x = 43; // FAILURE: A resource owner cannot be moved or modified while mutably borrowed.
+        bar.x = 43; // bar is dropped here because it's no longer used after this point
+        foo.x = 43; // This works now because all mutable references were dropped
+    }
+
+    {
+        // Dereferencing
+        // Using &mut references, you can set the owner's value using the * operator.
+        // You can also get a copy of an owned value using the * operator (if the value can be copied - we will discuss copyable types in later chapters).
+
+        let mut foo = Foo { x: 42 };
+        let bar = &mut foo;
+        let baz = *bar; // Get a copy of the owner's value (Since Foo implements the Copy trait, this operation copies the value of foo)
+        *bar = Foo { x: 43 }; // Set the reference's owner's value
+
+        println!("baz.x is still {} since it was copied before change", baz.x);
+        println!("foo.x, however, is now updated to {}", foo.x);
+    }
 }
