@@ -425,7 +425,7 @@ fn ownership_and_borrowing() {
     {
         // Instantiating a type and binding it to a variable name creates a memory resource that the Rust compiler will validate through its whole lifetime.
         // The bound variable is called the resource's owner.
-        let _foo = Foo { x: 42 }; // Creating memory resource and foo is the owner
+        let _foo = Foo { x: 42 }; // Creating memory resource and _foo is the owner
 
         // Rust uses the end of scope as the place to deconstruct and deallocate a resource.
         // The term for this deconstruction and deallocation is called a drop.
@@ -481,7 +481,7 @@ fn ownership_and_borrowing() {
     }
 
     {
-        // Dereferencing
+        // Dereferencing (When you want to access the data/value in the memory that the pointer points to - the contents of the address with that numerical index - then you dereference the pointer.)
         // Using &mut references, you can set the owner's value using the * operator.
         // You can also get a copy of an owned value using the * operator (if the value can be copied - we will discuss copyable types in later chapters).
 
@@ -492,5 +492,69 @@ fn ownership_and_borrowing() {
 
         println!("baz.x is still {} since it was copied before change", baz.x);
         println!("foo.x, however, is now updated to {}", foo.x);
+    }
+
+    {
+        // Passing around Borrowed Data
+        // Rust only allow there to be one mutable reference of a multiple non-mutable references but not both.
+        // A reference must never live longer than its owner (Like preventing from dangling pointers in C).
+
+        fn do_something(f: &mut Foo) {
+            f.x += 1;
+        }
+
+        let mut foo = Foo { x: 42 };
+        do_something(&mut foo);
+
+        // foo is dropped here
+    }
+
+    {
+        // Explicit Lifetimes
+        // Rust compiler knows lifetime of each variable and will attempt to validate that a reference never exists longer than its owner.
+
+        /*
+         * The <'a> after the function name introduces a lifetime parameter named 'a.
+         * Both foo and bar are references to Foo that must live at least as long as 'a.
+         * The return type is a reference to an i32 that is also guaranteed to be valid for the lifetime 'a.
+         * This tells the Rust compiler that the returned reference will not outlive the data referenced by foo or bar.
+         */
+        fn bigger_one<'a>(foo: &'a Foo, bar: &'a Foo) -> &'a i32 { // 'a represents some span of time during which the references are valid
+            if foo.x > bar.x {
+                &foo.x
+            } else {
+                &bar.x
+            }
+        }
+
+        let foo = Foo { x: 42 };
+        let bar = Foo { x: 43 };
+        println!("bigger one is: {}", bigger_one(& foo, & bar));
+
+        /*
+         * Consider a struct that holds a reference:
+         * The ImportantExcerpt returned by get_excerpt can only be used for as long as the original String exists.
+         * Once the original String goes out of scope, the ImportantExcerpt is no longer valid.
+         */
+        struct ImportantExcerpt<'a> {
+            part: &'a str, // part is valid for some lifetime 'a.
+        }
+        fn get_excerpt<'a>(s: &'a String) -> ImportantExcerpt<'a> { // The lifetime 'a ensures that the returned excerpt does not outlive the original string.
+            ImportantExcerpt { part: &s[0..s.len() / 2] }
+        }
+
+        // A correct usage
+        {
+            let foo = String::from("foo");
+            let excerpt = get_excerpt(&foo);
+            println!("Excerpt: {}", excerpt.part);
+        }
+
+        // An error demonstrating lifetime
+        // let excerpt = {
+        //     let foo = String::from("foo");
+        //     get_excerpt(&foo)
+        // };
+        // println!("Excerpt: {}", excerpt.part);
     }
 }
