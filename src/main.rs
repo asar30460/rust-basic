@@ -1,6 +1,6 @@
 use rand::Rng;
 use std::io::Write;
-use std::vec;
+use std::{str, vec};
 // For utilizing io::stdout().flush()
 use std::{cmp::Ordering, io};
 
@@ -21,6 +21,8 @@ fn main() {
         "4" => enum_struct(),
         "5" => generic_type(),
         "6" => ownership_and_borrowing(),
+        "7" => text(),
+        "8" => oop(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -43,6 +45,8 @@ fn cli_out_options() {
     println!("4. Enum and Struct");
     println!("5. Generic Type");
     println!("6. Ownership and Borrowing");
+    println!("7. Text");
+    println!("8. OOP");
 
     print!("=========================================\nEnter option: ");
 
@@ -519,7 +523,8 @@ fn ownership_and_borrowing() {
          * The return type is a reference to an i32 that is also guaranteed to be valid for the lifetime 'a.
          * This tells the Rust compiler that the returned reference will not outlive the data referenced by foo or bar.
          */
-        fn bigger_one<'a>(foo: &'a Foo, bar: &'a Foo) -> &'a i32 { // 'a represents some span of time during which the references are valid
+        fn bigger_one<'a>(foo: &'a Foo, bar: &'a Foo) -> &'a i32 {
+            // 'a represents some span of time during which the references are valid
             if foo.x > bar.x {
                 &foo.x
             } else {
@@ -529,7 +534,7 @@ fn ownership_and_borrowing() {
 
         let foo = Foo { x: 42 };
         let bar = Foo { x: 43 };
-        println!("bigger one is: {}", bigger_one(& foo, & bar));
+        println!("bigger one is: {}", bigger_one(&foo, &bar));
 
         /*
          * Consider a struct that holds a reference:
@@ -539,8 +544,11 @@ fn ownership_and_borrowing() {
         struct ImportantExcerpt<'a> {
             part: &'a str, // part is valid for some lifetime 'a.
         }
-        fn get_excerpt<'a>(s: &'a String) -> ImportantExcerpt<'a> { // The lifetime 'a ensures that the returned excerpt does not outlive the original string.
-            ImportantExcerpt { part: &s[0..s.len() / 2] }
+        fn get_excerpt<'a>(s: &'a String) -> ImportantExcerpt<'a> {
+            // The lifetime 'a ensures that the returned excerpt does not outlive the original string.
+            ImportantExcerpt {
+                part: &s[0..s.len() / 2],
+            }
         }
 
         // A correct usage
@@ -557,4 +565,139 @@ fn ownership_and_borrowing() {
         // };
         // println!("Excerpt: {}", excerpt.part);
     }
+}
+
+fn text() {
+    /*
+     * String literals are always Unicode and its type are &'static str where
+     * "'static" meaning the string data is created at compile time and will be available till the end of our program (it never drops)
+     * "str" means that it points to a sequence of bytes that are always valid utf-8
+     */
+
+    let a: &'static str = "hello, 🦀";
+    println!("text: {}, len: {}", a, a.len());
+
+    // Some useful string methods
+    let mut s = String::from("hello");
+    s.push_str(" world!");
+    println!("{}", s.to_uppercase());
+    println!("{}", &["hello", " ", "world", "!"].concat()); // hello world!. The temporary String lives until the end of the println!
+    println!("{}", ["a", "b", "c"].join(",")); // a,b,c. The & takes a reference to this temporary String
+}
+
+fn oop() {
+    struct ChatCompletionMessage {
+        role: String,
+        content: String,
+        last_response: Option<String>,
+    }
+
+    // Rust supports the concept of an object that is a struct associated with some functions (also known as methods).
+    impl ChatCompletionMessage {
+        // The first parameter of any method must be a reference to the instance associated with the method call
+        fn show_input_tokens(&mut self) {
+            // &self - Immutable ref to the inst; &mut self Mutable one
+            self.role = self.role.to_uppercase();
+            println!("{}: {}", &self.role, &self.content);
+        }
+
+        // By default fields and methods are accessible only to the module they belong to. Use pub to make them public
+        pub fn show_response(&mut self) {
+            let response = format!(
+                "{} seems to wanna know {}. There are some advices...",
+                self.role, self.content
+            );
+            println!("{}", response);
+            self.last_response = Some(response);
+        }
+    }
+
+    let mut new_chat = ChatCompletionMessage {
+        role: "devloper".to_string(),
+        content: "Explain OOP in Rust".to_string(),
+        last_response: None,
+    };
+
+    new_chat.show_input_tokens();
+    new_chat.show_response();
+
+    // Polymorphism provides ability for objects of different types through a common interface.
+    // Rust supports polymorphism with traits. Traits allow us to associate a set of methods with a struct type.
+    trait Token {
+        fn compute_tokens(&self) -> i32;
+
+        // Traits can have implemented methods.
+        fn use_multi_trait_fns(&self) {
+            let a = self.compute_tokens();
+            let b = self.compute_tokens();
+
+            println!("If you ask 2 times, you will consume {} tokens", a + b);
+        }
+    }
+
+    impl Token for ChatCompletionMessage {
+        fn compute_tokens(&self) -> i32 {
+            let input_tokens: i32 = self.content.len() as i32;
+
+            let output_tokens: i32;
+            match &self.last_response {
+                Some(response) => output_tokens = response.len() as i32,
+                None => output_tokens = 0,
+            }
+
+            input_tokens + output_tokens
+        }
+    }
+
+    println!(
+        "Total comsumed tokens in this conversation: {}",
+        new_chat.compute_tokens()
+    );
+    new_chat.use_multi_trait_fns();
+
+    // Traits can inherit methods from other traits.
+    trait ConversationToken: Token {
+        fn compute_conversation_tokens(&self) {
+            let a = self.compute_tokens();
+            let b = self.compute_tokens();
+
+            println!(
+                "If you ask 2 times in same conversation, you will consume {} tokens",
+                (1 + 2) * 2 / 2 * (a + b)
+            );
+        }
+
+        // You can also implement methods outside of the trait
+        fn compute_conversation_tokens_with_lite_model(&self);
+    }
+
+    // Don't forget to implement the trait
+    impl ConversationToken for ChatCompletionMessage {
+        fn compute_conversation_tokens_with_lite_model(&self) {
+            let lite_model_discont = 0.5;
+            let tokens = self.compute_tokens() as f32 * 2.0 * lite_model_discont;
+
+            println!(
+                "If you ask 2 times in same conversation with lite model, you will consume {} tokens",
+                tokens
+            );
+        }
+    }
+    new_chat.compute_conversation_tokens();
+    new_chat.compute_conversation_tokens_with_lite_model();
+
+    /*
+     * One trait can be implemented by multiple structs.
+     * However, If you call a function which passes a reference to a trait, How Rust know which struct to call the function on?
+     * Trait types &dyn MyTrait give us the ability to work with instances of objects indirectly using dynamic dispatch.
+     * When dynamic dispatch is used, Rust will encourage you to put dyn before your trait type so people are aware.
+     * Dynamic dispatch is slightly slower because of the pointer chasing to find the real function call.
+     */
+
+    fn dynamic_dispatch(conversation_token: &dyn ConversationToken) {
+        print!("[Dynamic dispatch mode] ");
+        io::stdout().flush().expect("Failed to flush stdout");
+        conversation_token.compute_conversation_tokens();
+    }
+    dynamic_dispatch(&new_chat);
 }
