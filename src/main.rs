@@ -700,4 +700,62 @@ fn oop() {
         conversation_token.compute_conversation_tokens();
     }
     dynamic_dispatch(&new_chat);
+
+    /*
+     * Traits introduce an interesting challenge when we want to store them within another struct.
+     * Traits obfuscate the original struct thus it also obfuscates the original size.
+     * Unsized values being stored in structs are handled in two ways in Rust:
+     *
+     * generics - Using parameterized types effectively create struct/functions known types and thus known sizes.
+     * indirection - Putting instances on the heap gives us a level of indirection that allow us to not have to worry about the size of the actual type and just store a pointer to it. There are other ways as well!
+     */
+
+    // Generics
+    fn generic_compute_tokens<T>(chat: &T)
+    where
+        T: Token, // By using generics, we create typed functions at compile time
+    {
+        println!("[Generic mode]: {}", chat.compute_tokens());
+    }
+    generic_compute_tokens(&new_chat);
+
+    // Generics shorthand alternative 1
+    fn generic_compute_tokens_shorthand<T: Token>(chat: &T) {
+        println!("[Generic shorthand] :{}", chat.compute_tokens());
+    }
+
+    // Generics shorthand alternative 2
+    fn generic_compute_tokens_shorthand_2(chat: &impl Token) {
+        println!("[Generic shorthand 2]: {}", chat.compute_tokens());
+    }
+    generic_compute_tokens(&new_chat);
+    generic_compute_tokens_shorthand(&new_chat);
+    generic_compute_tokens_shorthand_2(&new_chat);
+
+    /*
+     * In Rust, a Box is a smart pointer that allocates data on the heap.
+     * When you create a Box, it stores its data on the heap, and the Box pointer itself resides on the stack.
+     * Box is a struct known as a smart pointer that JUST holds the pointer to our data on the heap.
+     * Box is often used as a way to store a reference to something in a struct that must know the size of its fillds.
+     */
+    struct LLMEcosystem {
+        types: Vec<Box<dyn Token>>, // ChatCompletionMessage is one of the LLM applications. There are plenty of others like image, audio and assistant
+    }
+    let total_tokens_by_user = LLMEcosystem {
+        types: vec![
+            Box::new(ChatCompletionMessage {
+                role: "devloper".to_string(),
+                content: "Golang vs. Rust".to_string(),
+                last_response: None,
+            }),
+            Box::new(ChatCompletionMessage {
+                role: "devloper".to_string(),
+                content: "Rust Learning Map".to_string(),
+                last_response: None,
+            }),
+        ],
+    };
+    for (idx, data) in total_tokens_by_user.types.iter().enumerate() {
+        println!("[Box pointer]{}: {}", idx, data.compute_tokens());
+    }
 }
