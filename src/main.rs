@@ -2,7 +2,7 @@ use rand::Rng;
 use std::io::Write;
 use std::{str, vec};
 // For utilizing io::stdout().flush()
-use std::{cmp::Ordering, io};
+use std::{cmp::Ordering, fmt::Display, error::Error, io, ops::Deref};
 
 fn main() {
     // mut means mutable. If not specified, the variable is immutable. But mut is something different from const, which would be elaborated later
@@ -23,6 +23,7 @@ fn main() {
         "6" => ownership_and_borrowing(),
         "7" => text(),
         "8" => oop(),
+        "9" => smart_pointers(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -47,6 +48,7 @@ fn cli_out_options() {
     println!("6. Ownership and Borrowing");
     println!("7. Text");
     println!("8. OOP");
+    println!("9. Smart Pointers");
 
     print!("=========================================\nEnter option: ");
 
@@ -757,5 +759,94 @@ fn oop() {
     };
     for (idx, data) in total_tokens_by_user.types.iter().enumerate() {
         println!("[Box pointer]{}: {}", idx, data.compute_tokens());
+    }
+}
+
+fn smart_pointers() {
+    /*
+     * Reference can be converted into a more primitive type called a raw pointer.
+     * *const T - A raw pointer to data of type T that should never change.
+     * *mut T - A raw pointer to data of type T that can change.
+     *
+     * Raw pointers can be converted to and from numbers (e.g. usize).
+     */
+    let foo = 42;
+    let memory_location = &foo as *const i32 as usize;
+    println!("Memory location of foo: {}", memory_location);
+
+    /*
+     * In addition to the ability to create references to existing typed data using the & operator,
+     * Rust gives us the ability to create reference-like structs called smart pointers.
+     *
+     * Typically smart pointers implement Deref, DerefMut, and Drop traits to
+     * specify the logic of what should happen when the structure is dereferenced with * and . operators.
+     */
+    struct TattleTell<T> {
+        value: T,
+    }
+    impl<T> Deref for TattleTell<T> {
+        type Target = T; // Represents get T after dereferencing
+        fn deref(&self) -> &T {
+            println!("{} was used!", std::any::type_name::<T>());
+            &self.value
+        }
+    }
+    let foo = TattleTell {
+        value: "secret message",
+    };
+    println!("{}", foo.len()); // TattleTell doesn't define a len() method. Rust attempts to deref automatically.
+
+    /*
+     * Use unsafe when absolutely necessary and only after exhausting all safe alternatives.
+     * The Rust philosophy encourages minimal use of unsafe, ensuring memory safety and concurrency guarantees.
+     */
+    let a: [u8; 4] = [0, 1, 2, 3];
+    let pointer_a = &a as *const u8 as usize;
+    let pointer_b = pointer_a as *const f32;
+    let b = unsafe {
+        // This is unsafe because we are telling the compiler
+        // to assume our pointer is a valid f32 and
+        // dereference it's value into the variable b.
+        // Rust has no way to verify this assumption is true.
+        *pointer_b
+    };
+    println!("I swear this is a pie! {}", b);
+
+    /*
+     * The standard library has a universal trait std::error::Error for describing errors.
+     * 
+     * Using a smart pointer Box we can use the type Box<dyn std::error::Error> as a common type for returning errors
+     * because it allows us to propagate up an error on the heap and interact with it at a high level without having to know a specific type.
+     */
+    struct Pie;
+
+    #[derive(Debug)]
+    struct NotFreshError;
+
+    impl Display for NotFreshError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "This pie is not fresh")
+        }
+    }
+
+    impl Error for NotFreshError {}
+
+    impl Pie {
+        fn eat(&self) -> Result<(), Box<dyn Error>> {
+            Err(Box::new(NotFreshError))
+        }
+    }
+
+    // Return a type capable of describing almost any kind of error that might occur in our program
+    // so long as the error's data structure implements Rust's common Error trait
+    fn eat_pie() -> Result<(), Box<dyn Error>> {
+        let heap_pie = Box::new(Pie);
+        heap_pie.eat()?; // The ? operator propagates the error if one occurs. It expands to an early return Err(From::from(err))
+        Ok(())
+    }
+
+    match eat_pie() {
+        Ok(()) => println!("Yummy!"),
+        Err(e) => println!("Error: {}", e),
     }
 }
