@@ -1,8 +1,10 @@
 use rand::Rng;
 use std::io::Write;
+use std::time::Duration;
 use std::{str, vec};
+use tokio::time::sleep;
 // For utilizing io::stdout().flush()
-use std::{cmp::Ordering, fmt::Display, error::Error, io, ops::Deref};
+use std::{cmp::Ordering, error::Error, fmt::Display, io, ops::Deref};
 
 fn main() {
     // mut means mutable. If not specified, the variable is immutable. But mut is something different from const, which would be elaborated later
@@ -24,6 +26,7 @@ fn main() {
         "7" => text(),
         "8" => oop(),
         "9" => smart_pointers(),
+        "10" => tokio_async_programming(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -40,15 +43,22 @@ fn cli_out_options() {
     println!(
         "Welcome to Rust playground. Author: Tyler\n========================================="
     );
-    println!("1. Compare number");
-    println!("2. Const, Mut and Shadowing");
-    println!("3. Control Flow");
-    println!("4. Enum and Struct");
-    println!("5. Generic Type");
-    println!("6. Ownership and Borrowing");
-    println!("7. Text");
-    println!("8. OOP");
-    println!("9. Smart Pointers");
+
+    let menu_optrions = vec![
+        ("1", "Compare number"),
+        ("2", "Const, Mut and Shadowing"),
+        ("3", "Control Flow"),
+        ("4", "Enum and Struct"),
+        ("5", "Generic Type"),
+        ("6", "Ownership and Borrowing"),
+        ("7", "Text"),
+        ("8", "OOP"),
+        ("9", "Smart Pointers"),
+        ("10", "Tokio Asynchronous Programming"),
+    ];
+    for (id, option) in menu_optrions {
+        println!("{}", &format!("{:>2}: {}", id, option)); // :>2 indicates right alignment, and 2 sets the width to 2 characters
+    }
 
     print!("=========================================\nEnter option: ");
 
@@ -419,6 +429,52 @@ fn generic_type() {
     let v3 = vec![String::from("a"), "b".to_string()];
     for (idx, val) in v3.iter().enumerate() {
         println!("The {idx}th element in vector is: {val}");
+    }
+
+    /*
+     * Eager vs. Lazy Evaluation and extend implementation
+     *
+     * In Rust, evaluation strategy refers to "when and how expressions are computed".
+     *
+     * Eager Evaluation: Expressions are evaluated immediately, regardless of whether their results are ultimately used.
+     * Lazy Evaluation: Expressions are evaluated only when their results are needed.
+     */
+
+    // unwrap
+    {
+        /*
+         * Description: Extracts the value if the Result is Ok or the Option is Some. If it's an Err or None, it panics.
+         * Evaluation: No additional values are provided, so there's no evaluation of a default or alternative value.
+         */
+        let x: Result<u32, &str> = Ok(10);
+        assert_eq!(x.unwrap(), 10);
+    }
+
+    // For later paradigm usage
+    fn expensive_computation() -> u32 {
+        println!("expensive_computation");
+        42
+    }
+
+    // unwrap_or
+    {
+        /*
+         * Description: Returns the contained value (Ok or Some) or a provided default if it’s an Err or None.
+         * Eagerly Evaluated: The default value is always computed, regardless of whether it's needed.
+         */
+        let default = expensive_computation();
+        let x: Result<u32, &str> = Err("error");
+        assert_eq!(x.unwrap_or(default), default);
+    }
+
+    // unwrap_or_else
+    {
+        /*
+         * Description: Similar to unwrap_or, but instead of taking a value, it takes a closure (a function) that produces the default value.
+         * Lazily Evaluated: The closure is only executed if the Result is Err or the Option is None.
+         */
+        let x: Result<u32, &str> = Err("error");
+        assert_eq!(x.unwrap_or_else(|err| err.len() as u32), expensive_computation());
     }
 }
 
@@ -814,7 +870,7 @@ fn smart_pointers() {
 
     /*
      * The standard library has a universal trait std::error::Error for describing errors.
-     * 
+     *
      * Using a smart pointer Box we can use the type Box<dyn std::error::Error> as a common type for returning errors
      * because it allows us to propagate up an error on the heap and interact with it at a high level without having to know a specific type.
      */
@@ -849,4 +905,38 @@ fn smart_pointers() {
         Ok(()) => println!("Yummy!"),
         Err(e) => println!("Error: {}", e),
     }
+}
+
+#[tokio::main]
+async fn tokio_async_programming() {
+    /*
+     * Tokio is able to concurrently run many tasks on a few threads by repeatedly swapping the currently running task on each thread
+     * However, this kind of swapping can only happen at .await points, so code that spends a long time without reaching an .await
+     * will prevent other tasks from running.
+     * To combat this, Tokio provides two kinds of threads: Core threads and blocking threads.
+     *
+     * The core threads are where all asynchronous code runs, and Tokio will by default spawn one for each CPU core.
+     * You can use the environment variable TOKIO_WORKER_THREADS to override the default value.
+     *
+     * The blocking threads are spawned on demand, can be used to run blocking code that would otherwise block other tasks from running
+     * and are kept alive when not used for a certain amount of time which can be configured with thread_keep_alive.
+     */
+
+    // This is running on a core thread.
+    let blocking_task = tokio::task::spawn_blocking(|| async {
+        loop {
+            sleep(Duration::from_secs(1)).await;
+            println!("1000 ms have elapsed");
+        }
+        // This is running on a blocking thread.
+        // Blocking here is ok.
+    });
+
+    // We can wait for the blocking task like this:
+    // If the blocking task panics, the unwrap below will propagate the panic.
+    blocking_task.await.unwrap();
+
+    let default = 9;
+    let x: Result<u32, &str> = Ok(10);
+    assert_eq!(x.unwrap_or(default), 9);
 }
