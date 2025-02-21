@@ -2,9 +2,10 @@ use rand::Rng;
 use std::io::Write;
 use std::time::Duration;
 use std::{str, vec};
-use tokio::time::sleep;
 // For utilizing io::stdout().flush()
 use std::{cmp::Ordering, error::Error, fmt::Display, io, ops::Deref};
+
+use std::thread;
 
 fn main() {
     // mut means mutable. If not specified, the variable is immutable. But mut is something different from const, which would be elaborated later
@@ -20,13 +21,14 @@ fn main() {
         "1" => cmp_num(true),
         "2" => const_mut_shadowing(),
         "3" => control_flow(),
-        "4" => enum_struct(),
-        "5" => generic_type(),
-        "6" => ownership_and_borrowing(),
-        "7" => text(),
-        "8" => oop(),
-        "9" => smart_pointers(),
-        "10" => tokio_async_programming(),
+        "4" => closures(),
+        "5" => enum_struct(),
+        "6" => generic_type(),
+        "7" => ownership_and_borrowing(),
+        "8" => text(),
+        "9" => oop(),
+        "10" => smart_pointers(),
+        "11" => tokio_async_programming(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -45,19 +47,20 @@ fn cli_out_options() {
     );
 
     let menu_optrions = vec![
-        ("1", "Compare number"),
-        ("2", "Const, Mut and Shadowing"),
-        ("3", "Control Flow"),
-        ("4", "Enum and Struct"),
-        ("5", "Generic Type"),
-        ("6", "Ownership and Borrowing"),
-        ("7", "Text"),
-        ("8", "OOP"),
-        ("9", "Smart Pointers"),
-        ("10", "Tokio Asynchronous Programming"),
+        "Compare number",
+        "Const, Mut and Shadowing",
+        "Control Flow",
+        "Closures",
+        "Enum and Struct",
+        "Generic Type",
+        "Ownership and Borrowing",
+        "Text",
+        "OOP",
+        "Smart Pointers",
+        "Tokio Asynchronous Programming",
     ];
-    for (id, option) in menu_optrions {
-        println!("{}", &format!("{:>2}: {}", id, option)); // :>2 indicates right alignment, and 2 sets the width to 2 characters
+    for (id, option) in menu_optrions.iter().enumerate() {
+        println!("{}", &format!("{:>2}: {}", id + 1, option)); // :>2 indicates right alignment, and 2 sets the width to 2 characters
     }
 
     print!("=========================================\nEnter option: ");
@@ -203,6 +206,32 @@ fn control_flow() {
         print!("{x} ");
     }
     println!();
+}
+
+fn closures() {
+    /*
+     * Closures in Rust are anonymous functions that can capture variables from their surrounding environment
+     * That is, by defining a closure with lambdas, to represent some parameters are passed into a function
+     * The syntax is: |parameters| expression. Below shows some common uses of closures in Rust:
+     */
+
+    // || indicates that the closure takes no parameters.
+    let greeting = || println!("Hello, world!");
+    greeting();
+
+    // |x| defines a closure that takes one argument x
+    let square = |x| x * x;
+    let result = square(5);
+    println!("5 squared is {}", result);
+
+    // |x, y| defines a closure that takes two arguments x and y.
+    let add = |x, y| x + y;
+    let result = add(5, 3);
+    println!("5 + 3 is {}", result);
+
+    // Ignore Parameters (|_|). The closure |_, message| takes two parameters, but only message is used.
+    let print_message = |_, message| println!("Message: {}", message);
+    print_message(42, "Hello!");
 }
 
 fn enum_struct() {
@@ -473,8 +502,14 @@ fn generic_type() {
          * Description: Similar to unwrap_or, but instead of taking a value, it takes a closure (a function) that produces the default value.
          * Lazily Evaluated: The closure is only executed if the Result is Err or the Option is None.
          */
-        let x: Result<u32, &str> = Err("error");
-        assert_eq!(x.unwrap_or_else(|err| err.len() as u32), expensive_computation());
+        let x: Result<u32, u32> = Err(404);
+        assert_eq!(
+            x.unwrap_or_else(|err| {
+                println!("error: {}", err);
+                err
+            }),
+            expensive_computation()
+        );
     }
 }
 
@@ -923,20 +958,34 @@ async fn tokio_async_programming() {
      */
 
     // This is running on a core thread.
-    let blocking_task = tokio::task::spawn_blocking(|| async {
-        loop {
-            sleep(Duration::from_secs(1)).await;
-            println!("1000 ms have elapsed");
-        }
-        // This is running on a blocking thread.
-        // Blocking here is ok.
+    let blocking_task = tokio::task::spawn_blocking(|| {
+        // This is running on a blocking thread. Blocking here is ok.
+        // Simulate a blocking operation with thread::sleep
+        thread::sleep(Duration::from_secs(1));
+        println!("Blocking operation: 1000 ms have elapsed");
+
+        42
     });
 
     // We can wait for the blocking task like this:
     // If the blocking task panics, the unwrap below will propagate the panic.
     blocking_task.await.unwrap();
 
-    let default = 9;
-    let x: Result<u32, &str> = Ok(10);
-    assert_eq!(x.unwrap_or(default), 9);
+    // An fn for simulating a CPU intensive task
+    fn fibonacci(n: i8) -> i32 {
+        match n {
+            0 => 0,
+            1 => 1,
+            _ => fibonacci(n - 1) + fibonacci(n - 2),
+        }
+    }
+
+    let n: i8 = 40;
+    let blocking_task2 = tokio::task::spawn_blocking(move || {
+        let result = fibonacci(n);
+        println!("Fibonacci({}) = {}", n, result);
+        result
+    });
+
+    blocking_task2.await.unwrap();
 }
