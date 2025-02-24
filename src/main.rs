@@ -1,11 +1,9 @@
 use rand::Rng;
 use std::io::Write;
 use std::time::Duration;
+use std::{cmp::Ordering, error::Error, fmt::Display};
+use std::{io, ops::Deref, rc::Rc, sync::Arc, thread};
 use std::{str, vec};
-// For utilizing io::stdout().flush()
-use std::{cmp::Ordering, error::Error, fmt::Display, io, ops::Deref};
-
-use std::thread;
 
 fn main() {
     // mut means mutable. If not specified, the variable is immutable. But mut is something different from const, which would be elaborated later
@@ -806,7 +804,7 @@ fn oop() {
     // Generics
     fn generic_compute_tokens<T>(chat: &T)
     where
-        T: Token, // By using generics, we create typed functions at compile time
+        T: Token, // T must implement the Token trait. This creates typed functions at compile time
     {
         println!("[Generic mode]: {}", chat.compute_tokens());
     }
@@ -939,6 +937,44 @@ fn smart_pointers() {
     match eat_pie() {
         Ok(()) => println!("Yummy!"),
         Err(e) => println!("Error: {}", e),
+    }
+
+    /*
+     * Rc (Reference Counted) is a smart pointer that moves data from the stack onto the heap. Manage data lifecycle with reference counts.
+     * Copying the Rc pointer does not copy the data itself, it increases the reference count.
+     * It allows us to clone other Rc smart pointers that all have the ability to immutably borrow the data that was put on the heap.
+     * Only when the last smart pointer is dropped does the data on the heap become deallocated.
+     *
+     * Time to use: Needing multiple ownership within a single thread
+     */
+    impl Pie {
+        fn fresh_eat(&self) {
+            println!("tastes better on the heap!")
+        }
+    }
+
+    let heap_pie = Rc::new(Pie);
+    let heap_pie2 = heap_pie.clone();
+    let heap_pie3 = heap_pie2.clone();
+
+    heap_pie3.fresh_eat();
+    heap_pie2.fresh_eat();
+    heap_pie.fresh_eat();
+    println!("All reference count smart pointers are dropped now. The heap data Pie finally deallocates.");
+
+    /*
+     * Arc (Atomically Reference Counted): Arc serves a similar purpose to Rc but is designed to be thread-safe.
+     * It uses atomic operations to manage reference counts, ensuring safe usage across multiple threads.
+     * This thread safety comes with a performance cost compared to Rc due to the overhead of atomic operations
+     *
+     * Time to use: Require multiple ownership across multiple threads with thread safety.
+     */
+    {
+        let foo = Arc::new(vec![1.0, 2.0, 3.0]);
+        // The two syntaxes below are equivalent.
+        let a = foo.clone();
+        let b = Arc::clone(&foo);
+        println!("a, b, and foo are all Arcs that point to the same memory location: {:p}, {:p}, {:p}", a, b, foo); 
     }
 }
 
