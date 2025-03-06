@@ -4,6 +4,7 @@ use std::time::Duration;
 use std::{cmp::Ordering, error::Error, fmt::Display};
 use std::{io, ops::Deref, rc::Rc, sync::Arc, thread};
 use std::{str, vec};
+use serde_json::{Value, json};
 
 fn main() {
     // mut means mutable. If not specified, the variable is immutable. But mut is something different from const, which would be elaborated later
@@ -27,6 +28,7 @@ fn main() {
         "9" => oop(),
         "10" => smart_pointers(),
         "11" => tokio_async_programming(),
+        "12" => serde(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -56,6 +58,7 @@ fn cli_out_options() {
         "OOP",
         "Smart Pointers",
         "Tokio Asynchronous Programming",
+        "Serde",
     ];
     for (id, option) in menu_optrions.iter().enumerate() {
         println!("{}", &format!("{:>2}: {}", id + 1, option)); // :>2 indicates right alignment, and 2 sets the width to 2 characters
@@ -170,6 +173,34 @@ fn control_flow() {
         }
     };
     println!("The value of result is: {result}");
+
+    /*
+     * if let: Skip this section in control flow if you haven't read generics topic in chapter 6 of this note.
+     *
+     * "if let" is a simple way to deal with matching enums. Below shows some common real-world examples of using if let in Rust:
+     * 1. Handling optional values
+     * 2. Matching enum values
+     */
+
+    // 1. Handling optional values
+    let some_u8_value = Some(0u8);
+    if let Some(x) = some_u8_value {
+        // Some(x) is a pattern used to destructure an option type
+        println!("three comes {}!!!", x);
+    } else {
+        println!("not three");
+    }
+
+    // 2. Matching enum values
+    enum Color {
+        _Red,
+        Green,
+        _Blue,
+    }
+    let tree = Color::Green;
+    if let Color::Green = tree {
+        println!("tree is green");
+    }
 
     // Loop labels in nested loops with prefix '
     let mut count = 0;
@@ -974,7 +1005,10 @@ fn smart_pointers() {
         // The two syntaxes below are equivalent.
         let a = foo.clone();
         let b = Arc::clone(&foo);
-        println!("a, b, and foo are all Arcs that point to the same memory location: {:p}, {:p}, {:p}", a, b, foo); 
+        println!(
+            "a, b, and foo are all Arcs that point to the same memory location: {:p}, {:p}, {:p}",
+            a, b, foo
+        );
     }
 }
 
@@ -1024,4 +1058,18 @@ async fn tokio_async_programming() {
     });
 
     blocking_task2.await.unwrap();
+}
+
+fn serde() {
+    let mut scalar_res = json!(null);
+    let mut table_res: Vec<i32> = Vec::new();
+
+    let inst = json!({
+        "scalar": scalar_res,
+        "table": table_res,
+    });
+
+    if let Value::Null = inst["scalar"] {
+        println!("scalar is null");
+    }
 }
