@@ -1,10 +1,15 @@
 use rand::Rng;
+use serde_json::{json, Value};
+use std::fmt;
 use std::io::Write;
 use std::time::Duration;
 use std::{cmp::Ordering, error::Error, fmt::Display};
+use std::{
+    collections::HashMap,
+    net::{IpAddr, Ipv4Addr},
+};
 use std::{io, ops::Deref, rc::Rc, sync::Arc, thread};
 use std::{str, vec};
-use serde_json::{Value, json};
 
 fn main() {
     // mut means mutable. If not specified, the variable is immutable. But mut is something different from const, which would be elaborated later
@@ -29,6 +34,7 @@ fn main() {
         "10" => smart_pointers(),
         "11" => tokio_async_programming(),
         "12" => serde(),
+        "13" => hash_map(),
         _ => {
             // default
             let mut rng = rand::rng();
@@ -59,6 +65,7 @@ fn cli_out_options() {
         "Smart Pointers",
         "Tokio Asynchronous Programming",
         "Serde",
+        "Hashmap",
     ];
     for (id, option) in menu_optrions.iter().enumerate() {
         println!("{}", &format!("{:>2}: {}", id + 1, option)); // :>2 indicates right alignment, and 2 sets the width to 2 characters
@@ -637,7 +644,13 @@ fn ownership_and_borrowing() {
 
     {
         // Explicit Lifetimes
-        // Rust compiler knows lifetime of each variable and will attempt to validate that a reference never exists longer than its owner.
+        // A lifetime is a construct the compiler (or more specifically, its borrow checker) uses to ensure all borrows are valid.
+        // Specifically, a variable's lifetime begins when it is created and ends when it is destroyed.
+        // While lifetimes and scopes are often referred to together, they are not the same.
+        //
+        // Take, for example, the case where we borrow a variable via &. The borrow has a lifetime that is determined by where it is declared.
+        // As a result, the borrow is valid as long as it ends before the lender is destroyed.
+        // However, the scope of the borrow is determined by where the reference is used.
 
         /*
          * The <'a> after the function name introduces a lifetime parameter named 'a.
@@ -1061,8 +1074,8 @@ async fn tokio_async_programming() {
 }
 
 fn serde() {
-    let mut scalar_res = json!(null);
-    let mut table_res: Vec<i32> = Vec::new();
+    let scalar_res = json!(null);
+    let table_res: Vec<i32> = Vec::new();
 
     let inst = json!({
         "scalar": scalar_res,
@@ -1071,5 +1084,53 @@ fn serde() {
 
     if let Value::Null = inst["scalar"] {
         println!("scalar is null");
+    }
+}
+
+fn hash_map() {
+    /*
+     * Where vectors store value by an integer index, HashMap store values by keys.
+     * Keys can be boolean, integer, string, or any type that implements the Eq and Hash traits.
+     *
+     * HashMap is growable with recommended initial with a certain capacity by using:
+     * 1. HashMap::with_capacity(uint)
+     * 2. HashMap::new()
+     */
+
+    enum Url {
+        Domain(String),
+        IP(IpAddr),
+    }
+
+    impl fmt::Display for Url {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                Url::Domain(domain) => write!(f, "{}", domain),
+                Url::IP(ip) => write!(f, "{}", ip),
+            }
+        }
+    }
+
+    let mut fav_websites = HashMap::new();
+
+    fav_websites.insert(
+        "Google",
+        Url::IP(IpAddr::V4(Ipv4Addr::new(142, 251, 33, 100))),
+    );
+    fav_websites.insert("ChatGPT", Url::Domain(String::from("chat.openai.com")));
+    fav_websites.insert("Bing", Url::Domain(String::from("www.bing.com")));
+
+    // Takes a reference and returns Option<&V>
+    match fav_websites.get(&"Google") {
+        Some(url) => println!("You are now directing to {url}"),
+        None => println!("Google is not a website in your favorite list"),
+    }
+    if let Some(dest) = fav_websites.get(&"ChatGPT") {
+        println!("You are now directing to {dest}");
+    }
+
+    // Iterates over the keys and values in the HashMap
+    for (k, v) in &fav_websites {
+        println!("[Iteration] {:>7} -> {}", k, v);
     }
 }
